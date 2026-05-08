@@ -5,117 +5,170 @@
     <title>Lunar Lava Tubes Map | 月球熔岩管研究交互系统</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        body, html { margin: 0; padding: 0; height: 100%; background: #000; color: #fff; font-family: sans-serif; }
-        #map { height: 100vh; width: 100%; background: #000; }
+        /* 页面整体布局 */
+        body, html { margin: 0; padding: 0; height: 100%; background: #000; color: #fff; font-family: "Helvetica Neue", Arial, sans-serif; overflow: hidden; }
         
-        /* 信息面板 */
+        /* 外部容器：控制地图和轴线的整体宽度 */
+        .map-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 顶部经度轴：使用 flex 布局确保刻度均匀分布在 360 度内 */
+        .lon-axis {
+            height: 45px;
+            background: #05070a;
+            border-bottom: 2px solid #ff4d4d;
+            margin-left: 60px; /* 为左侧纬度轴留出宽度 */
+            display: flex;
+            justify-content: space-between;
+            position: relative;
+        }
+        
+        /* 刻度文字和细线 */
+        .tick {
+            position: relative;
+            flex: 1;
+            text-align: center;
+            font-size: 12px;
+            color: #888;
+            border-left: 1px solid #333;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .tick:last-child { border-right: 1px solid #333; }
+        .tick.prime { color: #fff; font-weight: bold; }
+
+        /* 中间主体：左侧轴 + 地图 */
+        .main-view {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* 左侧纬度轴 */
+        .lat-axis {
+            width: 60px;
+            background: #05070a;
+            border-right: 2px solid #ff4d4d;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            font-size: 12px;
+            color: #888;
+        }
+
+        /* 地图显示区 */
+        #map { 
+            flex: 1;
+            background: #000;
+        }
+
+        /* 浮动信息面板 */
         .info-panel { 
-            position: absolute; top: 20px; right: 20px; z-index: 1000; 
+            position: absolute; top: 70px; right: 30px; z-index: 1000; 
             background: rgba(10, 15, 25, 0.9); padding: 20px; 
             border-radius: 12px; border: 1px solid #444; 
-            width: 280px; backdrop-filter: blur(8px);
+            width: 260px; backdrop-filter: blur(5px);
         }
-        h1 { font-size: 1.1rem; margin: 0 0 10px 0; color: #ff4d4d; border-bottom: 1px solid #333; padding-bottom: 8px;}
-        .detail { font-size: 0.85rem; line-height: 1.6; color: #ccc; }
+        h1 { font-size: 1rem; margin: 0 0 10px 0; color: #ff4d4d; border-bottom: 1px solid #333; padding-bottom: 8px;}
 
-        /* 鼠标坐标显示器 */
-        .coords-display {
-            position: absolute; bottom: 10px; left: 10px; z-index: 1000;
-            background: rgba(0, 0, 0, 0.7); padding: 5px 10px;
-            border-radius: 4px; font-family: monospace; font-size: 12px;
-            color: #00ff00; border: 1px solid #333;
-        }
-
-        .star-red { color: #ff4d4d; font-size: 24px; text-shadow: 0 0 10px #ff4d4d; text-align: center; cursor: pointer; }
-        .star-gray { color: #888; font-size: 24px; text-shadow: 0 0 5px #fff; text-align: center; cursor: pointer; }
-        
-        /* 刻度线文字样式 */
-        .leaflet-grid-label { color: rgba(255, 255, 255, 0.6); font-size: 10px; font-weight: bold; }
+        /* 五角星样式 */
+        .star-red { color: #ff4d4d; font-size: 26px; text-shadow: 0 0 10px #ff4d4d; text-align: center; cursor: pointer; }
+        .star-gray { color: #888; font-size: 26px; text-shadow: 0 0 6px #fff; text-align: center; cursor: pointer; }
     </style>
 </head>
 <body>
 
-    <div class="info-panel">
-        <h1>月球地下空间分布</h1>
-        <div id="detail" class="detail">
-            <p>基于 LRO 数据的潜在入口分布研究。</p>
-            <p style="color:#ff4d4d">★ 月海熔岩管 (Maria)</p>
-            <p style="color:#888">★ 高地熔岩管 (Highlands)</p>
-            <hr style="border: 0.5px solid #222; margin: 15px 0;">
-            <div id="content">点击地图星标查看详细参数。</div>
-        </div>
+<div class="map-container">
+    <div class="lon-axis">
+        <div class="tick">180°</div>
+        <div class="tick">120°W</div>
+        <div class="tick">60°W</div>
+        <div class="tick prime">0°</div>
+        <div class="tick">60°E</div>
+        <div class="tick">120°E</div>
+        <div class="tick">180°</div>
     </div>
 
-    <div id="mouse-coords" class="coords-display">Lat: 0.00, Lng: 0.00</div>
+    <div class="main-view">
+        <div class="lat-axis">
+            <span>90°N</span>
+            <span>60°N</span>
+            <span>30°N</span>
+            <span style="color:#fff; font-weight:bold;">0°</span>
+            <span>30°S</span>
+            <span>60°S</span>
+            <span>90°S</span>
+        </div>
 
-    <div id="map"></div>
+        <div id="map"></div>
+    </div>
+</div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/leaflet-graticule@0.0.5/L.Graticule.min.js"></script>
-    
-    <script>
-        // 1. 初始化地图
-        const map = L.map('map', {
-            center: [0, 0],
-            zoom: 3,
-            minZoom: 2,
-            maxZoom: 8,
-            noWrap: true,
-            maxBounds: [[-90, -180], [90, 180]]
+<div class="info-panel">
+    <h1>月球地下空间分布</h1>
+    <div id="detail" style="font-size:0.85rem; color:#ccc; line-height:1.6;">
+        <p>请在 360° 全球视野内点击星标。</p>
+        <div id="content"></div>
+    </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    // 初始化地图：禁止重复显示 (noWrap) 并限制范围
+    const map = L.map('map', {
+        center: [0, 0],
+        zoom: 3,
+        minZoom: 2,
+        maxZoom: 7,
+        maxBounds: [[-90, -180], [90, 180]], // 严格限制在 360 度范围内
+        maxBoundsViscosity: 1.0, // 拖动到边缘时产生阻力，防止越界
+        attributionControl: false // 隐藏右下角标志以保持界面整洁
+    });
+
+    // 加载月球底图，设置 noWrap: true 确保地图不左右重复
+    L.tileLayer('https://cartocdn-gusc.global.ssl.fastly.net/opmbuilder/api/v1/map/named/opm-moon-basemap-v0-1/all/{z}/{x}/{y}.png', {
+        noWrap: true,
+        bounds: [[-90, -180], [90, 180]]
+    }).addTo(map);
+
+    const getIcon = (colorClass) => L.divIcon({
+        className: colorClass,
+        html: '★',
+        iconSize: [30, 30],
+        iconAnchor: [15, 15]
+    });
+
+    // 录入所有点位 (仅列举部分，你可以按此格式增加)
+    const sites = [
+        { name: "静海 (Tranquillitatis)", coords: [8.3, 33.2], type: "red", info: "月球正面首个确认入口。" },
+        { name: "马利厄斯山 (Marius Hills)", coords: [14.1, -56.7], type: "red", info: "月球最深、最清晰的天窗。" },
+        { name: "莫斯科海 (Moscoviense)", coords: [27.3, 147.9], type: "red", info: "【背面】罕见月海熔岩管。" },
+        { name: "康普顿 (Compton)", coords: [55.3, 103.8], type: "gray", info: "高地区域入口候选。" }
+    ];
+
+    sites.forEach(site => {
+        L.marker(site.coords, { icon: getIcon(site.type === 'red' ? 'star-red' : 'star-gray') })
+        .addTo(map)
+        .on('click', (e) => {
+            document.getElementById('content').innerHTML = `
+                <div style="background:rgba(255,255,255,0.1); padding:10px; border-radius:8px; margin-top:10px;">
+                    <strong style="color:#ff4d4d;">${site.name}</strong><br>
+                    <small>坐标: ${site.coords[0]}°N, ${site.coords[1]}°E</small><br>
+                    <p style="margin-top:8px;">${site.info}</p>
+                </div>
+            `;
+            map.panTo(site.coords);
         });
-
-        // 2. 加载你提供的 v0-1 高清底图
-        L.tileLayer('https://cartocdn-gusc.global.ssl.fastly.net/opmbuilder/api/v1/map/named/opm-moon-basemap-v0-1/all/{z}/{x}/{y}.png', {
-            attribution: 'NASA/LRO/OpenPlanetary',
-            noWrap: true
-        }).addTo(map);
-
-        // 3. 添加经纬度格网线
-        L.graticule({
-            interval: 30, // 每隔30度显示一条线
-            style: { color: '#444', weight: 0.5, opacity: 0.8, dashArray: '5, 5' }
-        }).addTo(map);
-
-        // 4. 实时显示鼠标指向的经纬度 (方便读者精准定位)
-        const coordsDisplay = document.getElementById('mouse-coords');
-        map.on('mousemove', function(e) {
-            const lat = e.latlng.lat.toFixed(2);
-            const lng = e.latlng.lng.toFixed(2);
-            coordsDisplay.innerHTML = `Lat: ${lat}, Lng: ${lng}`;
-        });
-
-        const getIcon = (colorClass) => L.divIcon({
-            className: colorClass,
-            html: '★',
-            iconSize: [30, 30],
-            iconAnchor: [15, 15]
-        });
-
-        // 数据点 (保持不变)
-        const sites = [
-            { name: "静海 (Mare Tranquillitatis)", coords: [8.3, 33.2], type: "red", info: "2024年确认存在地下隧道。" },
-            { name: "马利厄斯山 (Marius Hills)", coords: [14.1, -56.7], type: "red", info: "月球已知最著名的天窗入口。" },
-            { name: "莫斯科海 (Mare Moscoviense)", coords: [27.3, 147.9], type: "red", info: "【月球背面】罕见的月海熔岩管。" },
-            { name: "康普顿 (Compton)", coords: [55.3, 103.8], type: "gray", info: "高纬度高地入口。" }
-            // ... 你可以继续添加之前列表中的其他点位
-        ];
-
-        sites.forEach(site => {
-            const marker = L.marker(site.coords, {
-                icon: getIcon(site.type === 'red' ? 'star-red' : 'star-gray')
-            }).addTo(map);
-
-            marker.on('click', () => {
-                document.getElementById('content').innerHTML = `
-                    <div style="background:rgba(255,255,255,0.1); padding:10px; border-radius:8px;">
-                        <strong style="color:${site.type === 'red' ? '#ff4d4d' : '#fff'}">${site.name}</strong><br>
-                        <small>坐标: ${site.coords[0]}°N, ${site.coords[1]}°E</small><br>
-                        <p>${site.info}</p>
-                    </div>
-                `;
-                map.panTo(site.coords);
-            });
-        });
-    </script>
+    });
+</script>
 </body>
 </html>
