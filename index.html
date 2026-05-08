@@ -2,36 +2,48 @@
 <html lang="zh">
 <head>
     <meta charset="UTF-8">
-    <title>Lunar Lava Tubes | 0-360° 同步科研导航</title>
+    <title>Lunar Lava Tubes | 0-360° 综合科研平台</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        body, html { margin: 0; padding: 0; height: 100%; background: #000; color: #fff; font-family: "Segoe UI", sans-serif; overflow: hidden; }
+        body, html { margin: 0; padding: 0; height: 100%; background: #000; color: #fff; font-family: "Segoe UI", system-ui, sans-serif; overflow: hidden; }
         #map { height: 100vh; width: 100vw; background: #000; }
         
-        /* 强制网格标签样式：固定大小、同步位移 */
-        .leaflet-grid-label .lng-label, .leaflet-grid-label .lat-label {
-            font-size: 12px !important;
+        .coord-label {
+            font-size: 11px !important;
             font-weight: bold;
             color: #ff4d4d;
-            text-shadow: 2px 2px 2px #000;
-            background: rgba(0,0,0,0.4);
-            padding: 2px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 2px 4px;
+            border-radius: 3px;
+            white-space: nowrap;
+            pointer-events: none;
         }
 
-        /* 信息面板 */
+        /* 侧边信息面板优化 */
         .info-panel { 
             position: absolute; top: 20px; right: 20px; z-index: 1000; 
             background: rgba(13, 17, 23, 0.95); padding: 20px; 
             border-radius: 12px; border: 1px solid #30363d; 
-            width: 290px; backdrop-filter: blur(10px);
+            width: 320px; max-height: 85vh; overflow-y: auto;
+            backdrop-filter: blur(15px);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.8);
         }
-        h1 { font-size: 0.95rem; margin: 0 0 15px 0; color: #ff4d4d; border-bottom: 1px solid #333; padding-bottom: 8px; letter-spacing: 1px; }
-        .data-grid { display: grid; grid-template-columns: 85px 1fr; gap: 8px; font-size: 0.85rem; }
+
+        h1 { font-size: 1rem; margin: 0 0 15px 0; color: #ff4d4d; border-bottom: 1px solid #333; padding-bottom: 8px; letter-spacing: 1px; }
+        h2 { font-size: 0.85rem; margin: 20px 0 10px 0; color: #ff4d4d; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.8; }
+        
+        .summary-text { font-size: 0.8rem; line-height: 1.6; color: #8b949e; margin-bottom: 15px; text-align: justify; }
+        
+        .data-grid { display: grid; grid-template-columns: 85px 1fr; gap: 8px; font-size: 0.85rem; background: rgba(255,255,255,0.03); padding: 10px; border-radius: 8px; }
         .label { color: #8b949e; }
-        .val { color: #c9d1d9; font-family: monospace; }
+        .val { color: #c9d1d9; font-family: "Cascadia Code", monospace; }
 
         .star-red { color: #ff4d4d; font-size: 24px; text-shadow: 0 0 10px #ff4d4d; cursor: pointer; }
         .star-yellow { color: #e3b341; font-size: 24px; text-shadow: 0 0 10px #e3b341; cursor: pointer; }
+
+        /* 滚动条样式 */
+        .info-panel::-webkit-scrollbar { width: 4px; }
+        .info-panel::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
     </style>
 </head>
 <body>
@@ -39,97 +51,116 @@
 <div id="map"></div>
 
 <div class="info-panel">
-    <h1>LAVA TUBE DATA</h1>
-    <div id="content"><p style="font-size:0.8rem; color:#8b949e;">全量 21 点位已加载。经纬度网格已与底图同步，采用 0-360° 经度系统。</p></div>
+    <h1>LUNAR LAVA TUBES</h1>
+    
+    <div id="dynamic-content">
+        <section>
+            <h2>研究综述 | Overview</h2>
+            <p class="summary-text">
+                月球熔岩管（Lava Tubes）是由古代火山活动形成的地下隧道，被视为未来月球基地的理想选址。其厚实的地壳覆盖层能有效阻隔<b>宇宙辐射、微陨石撞击</b>以及剧烈的<b>昼夜温差</b>（约 -170°C 至 120°C）。
+            </p>
+            <p class="summary-text">
+                本系统集成了 21 个关键候选位点，重点分析了包括<b>静海（Mare Tranquillitatis）</b>和<b>马利厄斯山（Marius Hills）</b>在内的已知“天窗（Skylights）”结构。这些区域是进入月球内部空间的门户，对于建立长期载人科研站具有战略意义。
+            </p>
+        </section>
+        <p style="font-size:0.75rem; color:#555; border-top: 1px solid #222; padding-top: 10px;">
+            请点击地图上的星标以获取特定位点的基本参数。
+        </p>
+    </div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/turban/Leaflet.Graticule@master/L.Graticule.js"></script>
-
 <script>
-    // 1. 地图初始化：设置严格的地理边界
     const map = L.map('map', {
-        center: [0, 0],
-        zoom: 3,
-        minZoom: 2,
-        maxZoom: 8,
-        maxBounds: [[-90, -180], [90, 180]],
-        maxBoundsViscosity: 1.0,
+        center: [0, 0], zoom: 3, minZoom: 2, maxZoom: 8,
+        maxBounds: [[-90, -180], [90, 180]], maxBoundsViscosity: 1.0,
         attributionControl: false
     });
 
-    // 2. 加载底图：确保不循环且边界对齐
     L.tileLayer('https://cartocdn-gusc.global.ssl.fastly.net/opmbuilder/api/v1/map/named/opm-moon-basemap-v0-1/all/{z}/{x}/{y}.png', {
-        noWrap: true,
-        bounds: [[-90, -180], [90, 180]]
+        noWrap: true, bounds: [[-90, -180], [90, 180]]
     }).addTo(map);
 
-    // 3. 【关键】构建 0-360° 动态网格系统
-    L.graticule({
-        interval: 30,
-        showLabels: true,
-        opacity: 0.4,
-        color: '#ff4d4d',
-        dashArray: [2, 4],
-        font: 'bold 12px "Segoe UI"',
-        fontColor: '#ff4d4d',
-        // 格式化标签：将 -180~0 转换为 180~360
-        lngLabelFormatter: function(lng) {
-            let normalizedLng = lng < 0 ? lng + 360 : lng;
-            return normalizedLng.toFixed(0) + '°E';
-        },
-        latLabelFormatter: function(lat) {
-            return lat.toFixed(0) + (lat >= 0 ? '°N' : '°S');
+    // 坐标轴同步逻辑
+    const gridLayer = L.layerGroup().addTo(map);
+    function updateGrid() {
+        gridLayer.clearLayers();
+        const bounds = map.getBounds();
+        const interval = map.getZoom() > 4 ? 10 : 30;
+
+        for (let lat = -90; lat <= 90; lat += interval) {
+            L.polyline([[lat, -180], [lat, 180]], {color: '#ff4d4d', weight: 0.5, opacity: 0.2, dashArray: '5,5'}).addTo(gridLayer);
+            L.marker([lat, bounds.getWest()], {
+                icon: L.divIcon({ className: 'coord-label', html: `${lat}°${lat>=0?'N':'S'}`, iconSize: [40, 20], iconAnchor: [-5, 10] })
+            }).addTo(gridLayer);
         }
-    }).addTo(map);
+
+        for (let lng = -180; lng <= 180; lng += interval) {
+            L.polyline([[-90, lng], [90, lng]], {color: '#ff4d4d', weight: 0.5, opacity: 0.2, dashArray: '5,5'}).addTo(gridLayer);
+            let dLng = lng < 0 ? (lng + 360) : lng;
+            if(dLng === 360) dLng = 0;
+            L.marker([bounds.getNorth(), lng], {
+                icon: L.divIcon({ className: 'coord-label', html: `${dLng.toFixed(0)}°E`, iconSize: [40, 20], iconAnchor: [20, -5] })
+            }).addTo(gridLayer);
+        }
+    }
+    map.on('move zoom', updateGrid);
+    updateGrid();
 
     const getIcon = (zone) => L.divIcon({ 
         className: zone === '月海' ? 'star-red' : 'star-yellow', 
         html: '★', iconSize: [30, 30], iconAnchor: [15, 15] 
     });
 
-    // 4. 全量 21 点位数据（确保经度逻辑与网格标签一致）
+    // 21 个全量点位数据
     const fullData = [
-        { name: "静海", lat: 8.3355, lng: 33.2220, depth: "105", size: "100 × 88", zone: "月海", id: "M126710873R" },
-        { name: "马利厄斯山", lat: 14.0917, lng: 303.2299 - 360, depth: "40", size: "55 × 49", zone: "月海", id: "M155607349R" },
-        { name: "智海", lat: -35.9494, lng: 166.0559, depth: "55", size: "104 × 71", zone: "月海", id: "M1227298727R" },
-        { name: "北风暴洋-1", lat: 35.4097, lng: 314.3602 - 360, depth: "54", size: "157 × 108", zone: "月海", id: "M1341498389L" },
-        { name: "死湖", lat: 44.9608, lng: 25.6119, depth: "60", size: ">165 × 110", zone: "月海", id: "M126759036L" },
-        { name: "西南丰富海", lat: -6.7521, lng: 42.7595, depth: "51", size: "19 × 15", zone: "高地", id: "M1315099773L" },
-        { name: "西南静海", lat: 4.1438, lng: 24.6871, depth: "25", size: "32 × 26", zone: "月海", id: "M1345757107L" },
-        { name: "朗格撞击坑", lat: -2.7024, lng: 86.7800, depth: "5", size: "14 × 12", zone: "月海", id: "M119285915R" },
-        { name: "施吕特撞击坑", lat: -5.8395, lng: 276.9500 - 360, depth: "57", size: "37 × 23", zone: "高地", id: "M1328836141R" },
-        { name: "高地-1", lat: 43.9662, lng: 23.0836, depth: "27", size: "41 × 37", zone: "高地", id: "M1254078933R" },
-        { name: "高地-2", lat: 41.1563, lng: 18.8206, depth: ">24", size: "34 × 27", zone: "高地", id: "M1241199272R" },
-        { name: "高地-3", lat: 42.3941, lng: 320.3076 - 360, depth: "27", size: "45 × 41", zone: "高地", id: "M1175681573L" },
-        // 补充点位
-        { name: "雨海东部", lat: 26.1, lng: -0.5, depth: "待定", size: "大型", zone: "月海", id: "LRO_IM_013" },
-        { name: "澄海边缘", lat: 27.5, lng: 18.2, depth: "待定", size: "中型", zone: "月海", id: "LRO_IM_014" },
-        { name: "莫斯科海", lat: 27.3, lng: 147.9, depth: "待定", size: "大型", zone: "月海", id: "LRO_IM_015" },
-        { name: "康普顿高地", lat: 55.3, lng: 103.8, depth: "待定", size: "小型", zone: "高地", id: "LRO_IM_016" },
-        { name: "湿海", lat: -24.5, lng: -39.2, depth: "待定", size: "中型", zone: "月海", id: "LRO_IM_017" },
-        { name: "哥白尼坑周边", lat: 10.5, lng: -20.1, depth: "待定", size: "裂隙型", zone: "月海", id: "LRO_IM_018" },
-        { name: "阿里斯塔克斯高地", lat: 23.7, lng: -47.4, depth: "待定", size: "特殊地质", zone: "高地", id: "LRO_IM_019" },
-        { name: "泰欧菲鲁斯", lat: -11.4, lng: 26.4, depth: "待定", size: "中型", zone: "高地", id: "LRO_IM_020" },
-        { name: "柏拉图坑边缘", lat: 51.6, lng: -9.4, depth: "待定", size: "极地周边", zone: "高地", id: "LRO_IM_021" }
+        { name: "静海", lat: 8.3355, lng: 33.2220, depth: "105", size: "100 × 88", zone: "月海", id: "M126710873R", desc: "目前已知最深的月球天窗之一，位于静海中部，是地下熔岩管系统的标志性入口。" },
+        { name: "马利厄斯山", lat: 14.0917, lng: 303.2299 - 360, depth: "40", size: "55 × 49", zone: "月海", id: "M155607349R", desc: "位于复杂的火山穹丘区，由日本 SELENE 探测器首次确认，具有极高的科研价值。" },
+        { name: "智海", lat: -35.9494, lng: 166.0559, depth: "55", size: "104 × 71", zone: "月海", id: "M1227298727R", desc: "位于智海（Mare Ingenii），此处地质构造复杂，天窗规模巨大。" },
+        { name: "北风暴洋-1", lat: 35.4097, lng: 314.3602 - 360, depth: "54", size: "157 × 108", zone: "月海", id: "M1341498389L", desc: "风暴洋区域的典型熔岩管遗迹，开口呈现明显的椭圆形结构。" },
+        { name: "死湖", lat: 44.9608, lng: 25.6119, depth: "60", size: ">165 × 110", zone: "月海", id: "M126759036L", desc: "高纬度地区的月海点位，对于研究极区附近的资源利用具有参考意义。" },
+        { name: "西南丰富海", lat: -6.7521, lng: 42.7595, depth: "51", size: "19 × 15", zone: "高地", id: "M1315099773L", desc: "罕见的高地边缘点位，开口较小，但地质环境稳定。" },
+        { name: "西南静海", lat: 4.1438, lng: 24.6871, depth: "25", size: "32 × 26", zone: "月海", id: "M1345757107L", desc: "深度较浅，适合作为初步探测和机器人作业的试验场。" },
+        { name: "朗格撞击坑", lat: -2.7024, lng: 86.7800, depth: "5", size: "14 × 12", zone: "月海", id: "M119285915R", desc: "撞击坑内部形成的微型天窗，体现了撞击活动对地下结构的改造。" },
+        { name: "施吕特撞击坑", lat: -5.8395, lng: 276.9500 - 360, depth: "57", size: "37 × 23", zone: "高地", id: "M1328836141R", desc: "典型高地背景下的深层空腔，为高地地下结构研究提供了数据支撑。" },
+        { name: "高地-1", lat: 43.9662, lng: 23.0836, depth: "27", size: "41 × 37", zone: "高地", id: "M1254078933R", desc: "北半球高地候选区点位一。" },
+        { name: "高地-2", lat: 41.1563, lng: 18.8206, depth: ">24", size: "34 × 27", zone: "高地", id: "M1241199272R", desc: "北半球高地候选区点位二。" },
+        { name: "高地-3", lat: 42.3941, lng: 320.3076 - 360, depth: "27", size: "45 × 41", zone: "高地", id: "M1175681573L", desc: "北半球高地候选区点位三。" },
+        // 补充位点描述简略处理
+        { name: "雨海东部", lat: 26.1, lng: -0.5, depth: "待定", size: "大型", zone: "月海", id: "013", desc: "位于雨海东侧平原，潜在的大型地下空腔区域。" },
+        { name: "澄海边缘", lat: 27.5, lng: 18.2, depth: "待定", size: "中型", zone: "月海", id: "014", desc: "澄海盆地边缘的火山遗迹结构。" },
+        { name: "莫斯科海", lat: 27.3, lng: 147.9, depth: "待定", size: "大型", zone: "月海", id: "015", desc: "月球背面重要的候选点位，对建立深空监测站极具潜力。" },
+        { name: "康普顿高地", lat: 55.3, lng: 103.8, depth: "待定", size: "小型", zone: "高地", id: "016", desc: "高纬度高地典型结构。" },
+        { name: "湿海", lat: -24.5, lng: -39.2, depth: "待定", size: "中型", zone: "月海", id: "017", desc: "湿海西侧的潜在入口。" },
+        { name: "哥白尼坑周边", lat: 10.5, lng: -20.1, depth: "待定", size: "裂隙型", zone: "月海", id: "018", desc: "受大型撞击坑二次喷发影响形成的裂隙空腔。" },
+        { name: "阿里斯塔克斯高地", lat: 23.7, lng: -47.4, depth: "待定", size: "特殊地质", zone: "高地", id: "019", desc: "月球上反射率最高的区域，地质构造极其特殊。" },
+        { name: "泰欧菲鲁斯", lat: -11.4, lng: 26.4, depth: "待定", size: "中型", zone: "高地", id: "020", desc: "位于大型撞击坑环形山区域。" },
+        { name: "柏拉图坑边缘", lat: 51.6, lng: -9.4, depth: "待定", size: "极地周边", zone: "高地", id: "021", desc: "靠近北极点的研究位点。" }
     ];
 
     fullData.forEach(item => {
         L.marker([item.lat, item.lng], { icon: getIcon(item.zone) })
         .addTo(map)
         .on('click', () => {
-            let displayLng = item.lng < 0 ? (item.lng + 360).toFixed(4) : item.lng.toFixed(4);
-            document.getElementById('content').innerHTML = `
-                <div style="border-left: 3px solid #ff4d4d; padding-left: 15px; margin-top: 5px;">
-                    <b style="font-size: 1.1rem; color: #fff; display: block; margin-bottom: 12px;">${item.name}</b>
+            let dLng = item.lng < 0 ? (item.lng + 360).toFixed(4) : item.lng.toFixed(4);
+            document.getElementById('dynamic-content').innerHTML = `
+                <section>
+                    <h2 style="margin-top:0;">位点详情 | Detail</h2>
+                    <b style="font-size: 1.2rem; color: #fff; display: block; margin-bottom: 15px;">${item.name}</b>
                     <div class="data-grid">
                         <span class="label">区域类型:</span><span class="val">${item.zone}</span>
                         <span class="label">深度参数:</span><span class="val">${item.depth} m</span>
                         <span class="label">入口直径:</span><span class="val">${item.size} m</span>
-                        <span class="label">观测经度:</span><span class="val">${displayLng}°E</span>
+                        <span class="label">观测经度:</span><span class="val">${dLng}°E</span>
                         <span class="label">观测纬度:</span><span class="val">${item.lat.toFixed(4)}°N</span>
+                        <span class="label">图像 ID:</span><span class="val" style="font-size:0.7rem;">${item.id}</span>
                     </div>
-                </div>
+                </section>
+                <section>
+                    <h2>位点综述 | Summary</h2>
+                    <p class="summary-text">${item.desc}</p>
+                </section>
+                <button onclick="location.reload()" style="background:none; border:1px solid #444; color:#888; padding:5px 10px; border-radius:4px; font-size:0.7rem; cursor:pointer; margin-top:10px;">返回全局综述</button>
             `;
             map.panTo([item.lat, item.lng]);
         });
