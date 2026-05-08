@@ -2,28 +2,37 @@
 <html lang="zh">
 <head>
     <meta charset="UTF-8">
-    <title>Lunar Lava Tubes Map | 全量数据交互系统</title>
+    <title>Lunar Lava Tubes | 科研参数导航系统</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        body, html { margin: 0; padding: 0; height: 100%; background: #000; color: #fff; font-family: "Helvetica Neue", sans-serif; overflow: hidden; }
+        body, html { margin: 0; padding: 0; height: 100%; background: #000; color: #fff; font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif; overflow: hidden; }
         .map-container { position: relative; width: 100vw; height: 100vh; display: flex; flex-direction: column; }
         
-        /* 坐标轴样式 */
-        .lon-axis { height: 45px; background: #05070a; border-bottom: 2px solid #ff4d4d; margin-left: 60px; display: flex; justify-content: space-between; position: relative; }
-        .tick { flex: 1; text-align: center; font-size: 11px; color: #666; border-left: 1px solid #222; display: flex; align-items: center; justify-content: center; }
-        .tick.prime { color: #fff; font-weight: bold; border-left: 1px solid #ff4d4d; }
-        .main-view { display: flex; flex: 1; overflow: hidden; }
-        .lat-axis { width: 60px; background: #05070a; border-right: 2px solid #ff4d4d; display: flex; flex-direction: column; justify-content: space-between; align-items: center; padding: 10px 0; font-size: 11px; color: #666; }
+        /* 1. 顶部经度轴：Flex 布局确保 360 度等分 */
+        .lon-axis { height: 45px; background: #0a0c10; border-bottom: 2px solid #ff4d4d; margin-left: 65px; display: flex; position: relative; }
+        .tick { flex: 1; text-align: center; font-size: 11px; color: #666; border-left: 1px solid #222; display: flex; align-items: center; justify-content: center; position: relative; }
+        .tick.prime { color: #fff; font-weight: bold; border-left: 2px solid #ff4d4d; background: rgba(255, 77, 77, 0.05); }
 
-        #map { flex: 1; background: #000; }
+        /* 2. 主视图布局 */
+        .main-view { display: flex; flex: 1; overflow: hidden; }
         
-        /* 信息面板 */
-        .info-panel { position: absolute; top: 70px; right: 20px; z-index: 1000; background: rgba(10, 15, 25, 0.9); padding: 15px; border-radius: 8px; border: 1px solid #444; width: 240px; backdrop-filter: blur(5px); pointer-events: none; }
-        h1 { font-size: 0.9rem; margin: 0 0 8px 0; color: #ff4d4d; border-bottom: 1px solid #333; padding-bottom: 5px;}
+        /* 3. 左侧纬度轴 */
+        .lat-axis { width: 65px; background: #0a0c10; border-right: 2px solid #ff4d4d; display: flex; flex-direction: column; justify-content: space-between; align-items: center; padding: 15px 0; font-size: 11px; color: #666; }
+        .lat-axis span { height: 1px; display: flex; align-items: center; }
+        .lat-axis .equator { color: #fff; font-weight: bold; }
+
+        #map { flex: 1; background: #000; cursor: crosshair; }
         
-        /* 星标样式 */
-        .star-red { color: #ff4d4d; font-size: 22px; text-shadow: 0 0 8px #ff4d4d; text-align: center; cursor: pointer; }
-        .star-gray { color: #888; font-size: 22px; text-shadow: 0 0 5px #fff; text-align: center; cursor: pointer; }
+        /* 4. 交互面板：针对表 1 参数优化 */
+        .info-panel { position: absolute; top: 70px; right: 25px; z-index: 1000; background: rgba(13, 17, 23, 0.95); padding: 20px; border-radius: 12px; border: 1px solid #30363d; width: 290px; backdrop-filter: blur(12px); box-shadow: 0 15px 35px rgba(0,0,0,0.7); }
+        h1 { font-size: 1rem; margin: 0 0 15px 0; color: #ff4d4d; border-bottom: 1px solid #30363d; padding-bottom: 10px; letter-spacing: 1px; text-transform: uppercase; }
+        .data-grid { display: grid; grid-template-columns: 70px 1fr; gap: 8px; font-size: 0.85rem; }
+        .label { color: #8b949e; }
+        .val { color: #c9d1d9; font-family: "SFMono-Regular", Consolas, monospace; }
+
+        /* 5. 星标样式：红色(月海) / 黄色(高地) */
+        .star-red { color: #ff4d4d; font-size: 24px; text-shadow: 0 0 10px #ff4d4d; text-align: center; cursor: pointer; }
+        .star-yellow { color: #e3b341; font-size: 24px; text-shadow: 0 0 10px #e3b341; text-align: center; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -37,7 +46,7 @@
     <div class="main-view">
         <div class="lat-axis">
             <span>90°N</span><span>60°N</span><span>30°N</span>
-            <span style="color:#fff; font-weight:bold;">0°</span>
+            <span class="equator">0°</span>
             <span>30°S</span><span>60°S</span><span>90°S</span>
         </div>
         <div id="map"></div>
@@ -45,13 +54,15 @@
 </div>
 
 <div class="info-panel">
-    <h1>入口详情</h1>
-    <div id="content" style="font-size:0.8rem; color:#ccc;">点击地图点位查看参数</div>
+    <h1>Lava Tube Data</h1>
+    <div id="content">
+        <p style="font-size:0.8rem; color:#8b949e; line-height:1.5;">点击地图星标，查看《表 1 月球部分熔岩管基本参数》对应的实时勘测数据。</p>
+    </div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-    // 1. 初始化地图，锁定360度视野
+    // 1. 初始化地图逻辑：锁定单周 360 度显示
     const map = L.map('map', {
         center: [0, 0],
         zoom: 3,
@@ -62,52 +73,58 @@
         attributionControl: false
     });
 
-    // 2. 加载底图并强制坐标对位
+    // 2. 加载底图：noWrap 确保坐标不因地图循环而偏移
     L.tileLayer('https://cartocdn-gusc.global.ssl.fastly.net/opmbuilder/api/v1/map/named/opm-moon-basemap-v0-1/all/{z}/{x}/{y}.png', {
         noWrap: true,
         bounds: [[-90, -180], [90, 180]]
     }).addTo(map);
 
-    const getIcon = (cls) => L.divIcon({ className: cls, html: '★', iconSize: [30, 30], iconAnchor: [15, 15] });
+    const getIcon = (zone) => L.divIcon({ 
+        className: zone === '月海' ? 'star-red' : 'star-yellow', 
+        html: '★', 
+        iconSize: [30, 30], 
+        iconAnchor: [15, 15] 
+    });
 
-    // 3. 全量数据注入 (根据你的原图完整还原)
-    const sites = [
-        // 月海熔岩管 (红色星标) - 正面
-        { n: "静海 (M. Tranquillitatis)", c: [8.3, 33.2], t: "r", d: "已证实存在长约数百米的地下熔岩隧道。" },
-        { n: "马利厄斯山 (Marius Hills)", c: [14.1, -56.7], t: "r", d: "月球已知最深天窗入口，直径约65m。" },
-        { n: "虹湾 (Sinus Iridium)", c: [44.1, -31.5], t: "r", d: "位于雨海西北部，潜在的大型地下空腔。" },
-        { n: "风暴洋北部 (N. Procellarum)", c: [28.0, -45.0], t: "r", d: "广泛分布的月海玄武岩区域。" },
-        { n: "澄海 (M. Serenitatis)", c: [27.5, 18.2], t: "r", d: "月海边缘的塌陷结构。" },
-        { n: "湿海 (M. Humorum)", c: [-24.5, -39.2], t: "r", d: "南部月海的典型入口。" },
-        { n: "哥白尼坑周边", c: [10.5, -20.1], t: "r", d: "受撞击活动影响形成的裂隙。" },
-        { n: "丰富海 (M. Fecunditatis)", c: [-7.8, 51.3], t: "r", d: "月球东部的潜在选址。" },
-        { n: "雨海东部", c: [26.1, -0.5], t: "r", d: "靠近0度经线的月海通道。" },
-        // 月海熔岩管 - 背面
-        { n: "莫斯科海 (M. Moscoviense)", c: [27.3, 147.9], t: "r", d: "月球背面极为罕见的月海熔岩管入口。" },
-        { n: "智海 (M. Ingenii)", c: [-33.7, 163.5], t: "r", d: "背面著名的天窗群，地质构造活跃。" },
-
-        // 高地熔岩管 (灰色星标)
-        { n: "康普顿 (Compton)", c: [55.3, 103.8], t: "g", d: "高纬度高地区域，适合极地科研。" },
-        { n: "朗格 (Langrenus)", c: [-8.9, 61.1], t: "g", d: "撞击坑边缘的次生熔岩通道。" },
-        { n: "格里马尔迪 (Grimaldi)", c: [-5.2, -68.3], t: "g", d: "靠近西边缘的高地空腔。" },
-        { n: "施吕特 (Schlüter)", c: [-5.9, -83.3], t: "g", d: "西部高地的重要研究位点。" },
-        { n: "阿里斯塔克斯高地", c: [23.7, -47.4], t: "g", d: "高反射率区域的特殊地质入口。" },
-        { n: "泰欧菲鲁斯", c: [-11.4, 26.4], t: "g", d: "高地过渡地带入口。" },
-        { n: "柏拉图坑边缘", c: [51.6, -9.4], t: "g", d: "北部高纬度入口候选。" }
+    /**
+     * 3. 表 1 数据全量录入
+     * 注意：针对 303.2°E 这种表达，代码中已转换为 -56.8° 以匹配 Web 墨卡托投影
+     */
+    const table1Data = [
+        { name: "静海", lat: 8.3355, lng: 33.2220, depth: "105", size: "100 × 88", zone: "月海", id: "M126710873R" },
+        { name: "马利厄斯山", lat: 14.0917, lng: 303.2299 - 360, depth: "40", size: "55 × 49", zone: "月海", id: "M155607349R" },
+        { name: "智海", lat: -35.9494, lng: 166.0559, depth: "55", size: "104 × 71", zone: "月海", id: "M1227298727R" },
+        { name: "北风暴洋-1", lat: 35.4097, lng: 314.3602 - 360, depth: "54", size: "157 × 108", zone: "月海", id: "M1341498389L" },
+        { name: "死湖", lat: 44.9608, lng: 25.6119, depth: "60", size: ">165 × 110", zone: "月海", id: "M126759036L" },
+        { name: "西南丰富海", lat: -6.7521, lng: 42.7595, depth: "51", size: "19 × 15", zone: "高地", id: "M1315099773L" },
+        { name: "西南静海", lat: 4.1438, lng: 24.6871, depth: "25", size: "32 × 26", zone: "月海", id: "M1345757107L" },
+        { name: "朗格撞击坑", lat: -2.7024, lng: 86.7800, depth: "5", size: "14 × 12", zone: "月海", id: "M119285915R" },
+        { name: "施吕特撞击坑", lat: -5.8395, lng: 276.9500 - 360, depth: "57", size: "37 × 23", zone: "高地", id: "M1328836141R" },
+        { name: "高地-1", lat: 43.9662, lng: 23.0836, depth: "27", size: "41 × 37", zone: "高地", id: "M1254078933R" },
+        { name: "高地-2", lat: 41.1563, lng: 18.8206, depth: ">24", size: "34 × 27", zone: "高地", id: "M1241199272R" },
+        { name: "高地-3", lat: 42.3941, lng: 320.3076 - 360, depth: "27", size: "45 × 41", zone: "高地", id: "M1175681573L" }
     ];
 
-    sites.forEach(s => {
-        L.marker(s.c, { icon: getIcon(s.t === 'r' ? 'star-red' : 'star-gray') })
+    // 4. 渲染点位与交互
+    table1Data.forEach(item => {
+        L.marker([item.lat, item.lng], { icon: getIcon(item.zone) })
         .addTo(map)
         .on('click', () => {
-            document.getElementById('content').innerHTML = `
-                <div style="background:rgba(255,255,255,0.1); padding:10px; border-radius:4px; margin-top:5px;">
-                    <b style="color:#ff4d4d; font-size:0.9rem;">${s.n}</b><br>
-                    <code style="color:#0f0;">LAT: ${s.c[0]}, LNG: ${s.c[1]}</code><br>
-                    <p style="margin:8px 0 0 0; line-height:1.4;">${s.d}</p>
+            const panel = document.getElementById('content');
+            panel.innerHTML = `
+                <div style="border-left: 3px solid #ff4d4d; padding-left: 15px; margin-top: 10px;">
+                    <b style="font-size: 1.1rem; color: #fff; display: block; margin-bottom: 12px;">${item.name}</b>
+                    <div class="data-grid">
+                        <span class="label">区域类型</span><span class="val">${item.zone}</span>
+                        <span class="label">深度参数</span><span class="val">${item.depth} m</span>
+                        <span class="label">入口直径</span><span class="val">${item.size} m</span>
+                        <span class="label">经度(E)</span><span class="val">${item.lng < 0 ? (item.lng + 360).toFixed(4) : item.lng.toFixed(4)}°</span>
+                        <span class="label">纬度(N)</span><span class="val">${item.lat.toFixed(4)}°</span>
+                        <span class="label">图像ID</span><span class="val" style="font-size: 0.7rem;">${item.id}</span>
+                    </div>
                 </div>
             `;
-            map.panTo(s.c);
+            map.panTo([item.lat, item.lng]);
         });
     });
 </script>
