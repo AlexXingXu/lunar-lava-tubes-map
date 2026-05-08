@@ -2,35 +2,34 @@
 <html lang="zh">
 <head>
     <meta charset="UTF-8">
-    <title>Lunar Lava Tubes | 同步坐标导航系统</title>
+    <title>Lunar Lava Tubes | 0-360° 同步科研导航</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         body, html { margin: 0; padding: 0; height: 100%; background: #000; color: #fff; font-family: "Segoe UI", sans-serif; overflow: hidden; }
         #map { height: 100vh; width: 100vw; background: #000; }
         
-        /* 保持经纬度标签数字大小不变的 CSS */
-        .grid-label {
+        /* 强制网格标签样式：固定大小、同步位移 */
+        .leaflet-grid-label .lng-label, .leaflet-grid-label .lat-label {
             font-size: 12px !important;
             font-weight: bold;
             color: #ff4d4d;
-            text-shadow: 0 0 3px #000, 1px 1px 0 #000;
-            white-space: nowrap;
+            text-shadow: 2px 2px 2px #000;
+            background: rgba(0,0,0,0.4);
+            padding: 2px;
         }
 
         /* 信息面板 */
         .info-panel { 
             position: absolute; top: 20px; right: 20px; z-index: 1000; 
-            background: rgba(13, 17, 23, 0.9); padding: 20px; 
+            background: rgba(13, 17, 23, 0.95); padding: 20px; 
             border-radius: 12px; border: 1px solid #30363d; 
-            width: 280px; backdrop-filter: blur(10px);
-            pointer-events: auto;
+            width: 290px; backdrop-filter: blur(10px);
         }
-        h1 { font-size: 1rem; margin: 0 0 12px 0; color: #ff4d4d; border-bottom: 1px solid #333; padding-bottom: 8px; }
-        .data-grid { display: grid; grid-template-columns: 80px 1fr; gap: 8px; font-size: 0.85rem; }
+        h1 { font-size: 0.95rem; margin: 0 0 15px 0; color: #ff4d4d; border-bottom: 1px solid #333; padding-bottom: 8px; letter-spacing: 1px; }
+        .data-grid { display: grid; grid-template-columns: 85px 1fr; gap: 8px; font-size: 0.85rem; }
         .label { color: #8b949e; }
         .val { color: #c9d1d9; font-family: monospace; }
 
-        /* 星标 */
         .star-red { color: #ff4d4d; font-size: 24px; text-shadow: 0 0 10px #ff4d4d; cursor: pointer; }
         .star-yellow { color: #e3b341; font-size: 24px; text-shadow: 0 0 10px #e3b341; cursor: pointer; }
     </style>
@@ -41,14 +40,14 @@
 
 <div class="info-panel">
     <h1>LAVA TUBE DATA</h1>
-    <div id="content"><p style="font-size:0.8rem; color:#8b949e;">缩放地图查看坐标轴同步变换。</p></div>
+    <div id="content"><p style="font-size:0.8rem; color:#8b949e;">全量 21 点位已加载。经纬度网格已与底图同步，采用 0-360° 经度系统。</p></div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/turban/Leaflet.Graticule@master/L.Graticule.js"></script>
 
 <script>
-    // 1. 初始化地图
+    // 1. 地图初始化：设置严格的地理边界
     const map = L.map('map', {
         center: [0, 0],
         zoom: 3,
@@ -59,22 +58,29 @@
         attributionControl: false
     });
 
-    // 2. 加载底图
+    // 2. 加载底图：确保不循环且边界对齐
     L.tileLayer('https://cartocdn-gusc.global.ssl.fastly.net/opmbuilder/api/v1/map/named/opm-moon-basemap-v0-1/all/{z}/{x}/{y}.png', {
         noWrap: true,
         bounds: [[-90, -180], [90, 180]]
     }).addTo(map);
 
-    // 3. 【核心优化】动态坐标轴绑定
-    // 使用插件在地图图层内绘制经纬线和数字，这样它们会随缩放位移，但样式受 CSS 控制保持大小不变
+    // 3. 【关键】构建 0-360° 动态网格系统
     L.graticule({
         interval: 30,
         showLabels: true,
-        opacity: 0.3,
+        opacity: 0.4,
         color: '#ff4d4d',
-        dashArray: [4, 4],
+        dashArray: [2, 4],
         font: 'bold 12px "Segoe UI"',
-        fontColor: '#ff4d4d'
+        fontColor: '#ff4d4d',
+        // 格式化标签：将 -180~0 转换为 180~360
+        lngLabelFormatter: function(lng) {
+            let normalizedLng = lng < 0 ? lng + 360 : lng;
+            return normalizedLng.toFixed(0) + '°E';
+        },
+        latLabelFormatter: function(lat) {
+            return lat.toFixed(0) + (lat >= 0 ? '°N' : '°S');
+        }
     }).addTo(map);
 
     const getIcon = (zone) => L.divIcon({ 
@@ -82,7 +88,7 @@
         html: '★', iconSize: [30, 30], iconAnchor: [15, 15] 
     });
 
-    // 4. 全量 21 点位数据
+    // 4. 全量 21 点位数据（确保经度逻辑与网格标签一致）
     const fullData = [
         { name: "静海", lat: 8.3355, lng: 33.2220, depth: "105", size: "100 × 88", zone: "月海", id: "M126710873R" },
         { name: "马利厄斯山", lat: 14.0917, lng: 303.2299 - 360, depth: "40", size: "55 × 49", zone: "月海", id: "M155607349R" },
@@ -96,6 +102,7 @@
         { name: "高地-1", lat: 43.9662, lng: 23.0836, depth: "27", size: "41 × 37", zone: "高地", id: "M1254078933R" },
         { name: "高地-2", lat: 41.1563, lng: 18.8206, depth: ">24", size: "34 × 27", zone: "高地", id: "M1241199272R" },
         { name: "高地-3", lat: 42.3941, lng: 320.3076 - 360, depth: "27", size: "45 × 41", zone: "高地", id: "M1175681573L" },
+        // 补充点位
         { name: "雨海东部", lat: 26.1, lng: -0.5, depth: "待定", size: "大型", zone: "月海", id: "LRO_IM_013" },
         { name: "澄海边缘", lat: 27.5, lng: 18.2, depth: "待定", size: "中型", zone: "月海", id: "LRO_IM_014" },
         { name: "莫斯科海", lat: 27.3, lng: 147.9, depth: "待定", size: "大型", zone: "月海", id: "LRO_IM_015" },
@@ -111,6 +118,7 @@
         L.marker([item.lat, item.lng], { icon: getIcon(item.zone) })
         .addTo(map)
         .on('click', () => {
+            let displayLng = item.lng < 0 ? (item.lng + 360).toFixed(4) : item.lng.toFixed(4);
             document.getElementById('content').innerHTML = `
                 <div style="border-left: 3px solid #ff4d4d; padding-left: 15px; margin-top: 5px;">
                     <b style="font-size: 1.1rem; color: #fff; display: block; margin-bottom: 12px;">${item.name}</b>
@@ -118,7 +126,8 @@
                         <span class="label">区域类型:</span><span class="val">${item.zone}</span>
                         <span class="label">深度参数:</span><span class="val">${item.depth} m</span>
                         <span class="label">入口直径:</span><span class="val">${item.size} m</span>
-                        <span class="label">观测坐标:</span><span class="val">${item.lat.toFixed(4)}°N, ${item.lng < 0 ? (item.lng+360).toFixed(4) : item.lng.toFixed(4)}°E</span>
+                        <span class="label">观测经度:</span><span class="val">${displayLng}°E</span>
+                        <span class="label">观测纬度:</span><span class="val">${item.lat.toFixed(4)}°N</span>
                     </div>
                 </div>
             `;
