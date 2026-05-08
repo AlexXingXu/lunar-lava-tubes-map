@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>Lunar Lava Tubes Map | 月球熔岩管分布图</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        /* 页面基础样式：深色背景符合航天科研审美 */
+        body, html { margin: 0; padding: 0; height: 100%; background: #05070a; color: #e0e0e0; font-family: "Helvetica Neue", Arial, sans-serif; }
+        #map { height: 100vh; width: 100%; background: #000; }
+        
+        /* 右侧悬浮信息面板 */
+        .info-panel { 
+            position: absolute; top: 20px; right: 20px; z-index: 1000; 
+            background: rgba(15, 20, 30, 0.9); padding: 20px; 
+            border-radius: 12px; border: 1px solid #3a4750; 
+            width: 300px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            backdrop-filter: blur(5px);
+        }
+        h1 { font-size: 1.2rem; margin: 0 0 10px 0; color: #ff4d4d; letter-spacing: 1px; }
+        .detail-content { font-size: 0.9rem; line-height: 1.5; color: #ccc; }
+        .detail-content img { width: 100%; border-radius: 4px; margin-top: 10px; border: 1px solid #444; }
+        
+        /* 自定义红色五角星标记样式 */
+        .star-icon {
+            color: #ff4d4d;
+            font-size: 24px;
+            text-shadow: 0 0 10px rgba(255, 77, 77, 0.8);
+            text-align: center;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="info-panel">
+        <h1>月球地下空间入口</h1>
+        <div id="detail" class="detail-content">
+            <p>请在地图上点击红色星标，查看熔岩管天窗的详细参数及设计研究。</p>
+        </div>
+    </div>
+
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // 1. 初始化地图：中心点设在赤道附近，缩放级别设为 3
+        const map = L.map('map', {
+            center: [10, 0], 
+            zoom: 3,
+            minZoom: 2,
+            maxZoom: 6,
+            maxBounds: [[-90, -180], [90, 180]] // 限制拖动范围不超出全球
+        });
+
+        // 2. 加载月球瓦片底图 (使用 NASA LROC 数据源)
+        L.tileLayer('https://cartocdn-gusc.global.ssl.fastly.net/opmbuilder/api/v1/map/named/opm-moon-basemap/all/{z}/{x}/{y}.png', {
+            attribution: 'NASA/LROC/ASU | Lunar Underground Research'
+        }).addTo(map);
+
+        // 3. 定义红色五角星图标
+        const starIcon = L.divIcon({
+            className: 'star-icon',
+            html: '★', 
+            iconSize: [30, 30],
+            iconAnchor: [15, 15]
+        });
+
+        // 4. 配置地点数据 (包含经纬度坐标和描述)
+        const tubes = [
+            { 
+                name: "静海天窗 (Mare Tranquillitatis)", 
+                coords: [8.33, 33.22], 
+                info: "2024年确认存在长约数百米的地下熔岩隧道。作为月球首个实证入口，它是未来建立模块化地下基地的首选地点。",
+                image: "https://via.placeholder.com/300x180/222/fff?text=Tube+Section+Study" 
+            },
+            { 
+                name: "马利厄斯山 (Marius Hills)", 
+                coords: [14.09, -56.71], 
+                info: "已知最著名的月球天窗之一，直径约65米。其稳定的地下空间非常适合放置医疗舱段和长期居住模块。",
+                image: "https://via.placeholder.com/300x180/222/fff?text=Marius+Hills+Rendering" 
+            },
+            { 
+                name: "莫斯科海 (Mare Moscoviense)", 
+                coords: [27.3, 147.9], 
+                info: "位于月球背面。由于背面可以完全屏蔽地球的无线电干扰，这里的熔岩管是建立深空探测射电望远镜基地的理想位置。",
+                image: "https://via.placeholder.com/300x180/222/fff?text=Far+Side+Facility"
+            }
+        ];
+
+        // 5. 循环生成标记并添加点击交互
+        tubes.forEach(tube => {
+            const marker = L.marker(tube.coords, {icon: starIcon}).addTo(map);
+            
+            marker.on('click', () => {
+                // 更新右侧面板内容
+                document.getElementById('detail').innerHTML = `
+                    <h2 style="font-size:1rem; color:#fff; margin:10px 0;">${tube.name}</h2>
+                    <p><b>坐标:</b> 纬度 ${tube.coords[0]}, 经度 ${tube.coords[1]}</p>
+                    <p>${tube.info}</p>
+                    <img src="${tube.image}" alt="研究示意图">
+                    <p style="font-size:0.8rem; color:#888; margin-top:10px;">* 数据来源: 国际天文学联合会 (IAU)</p>
+                `;
+                // 视角自动平移到选中的地点
+                map.panTo(tube.coords);
+            });
+        });
+    </script>
+</body>
+</html>
