@@ -2,41 +2,38 @@
 <html lang="zh">
 <head>
     <meta charset="UTF-8">
-    <title>Lunar Lava Tubes Map | 月球熔岩管分布图</title>
+    <title>Lunar Lava Tubes Map | 月球熔岩管研究地图</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        /* 页面基础样式：深色背景符合航天科研审美 */
-        body, html { margin: 0; padding: 0; height: 100%; background: #05070a; color: #e0e0e0; font-family: "Helvetica Neue", Arial, sans-serif; }
+        body, html { margin: 0; padding: 0; height: 100%; background: #000; color: #fff; font-family: sans-serif; }
         #map { height: 100vh; width: 100%; background: #000; }
         
-        /* 右侧悬浮信息面板 */
+        /* 交互面板样式 */
         .info-panel { 
             position: absolute; top: 20px; right: 20px; z-index: 1000; 
-            background: rgba(15, 20, 30, 0.9); padding: 20px; 
-            border-radius: 12px; border: 1px solid #3a4750; 
-            width: 300px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-            backdrop-filter: blur(5px);
+            background: rgba(10, 15, 25, 0.9); padding: 20px; 
+            border-radius: 12px; border: 1px solid #444; 
+            width: 280px; backdrop-filter: blur(8px);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
         }
-        h1 { font-size: 1.2rem; margin: 0 0 10px 0; color: #ff4d4d; letter-spacing: 1px; }
-        .detail-content { font-size: 0.9rem; line-height: 1.5; color: #ccc; }
-        .detail-content img { width: 100%; border-radius: 4px; margin-top: 10px; border: 1px solid #444; }
-        
-        /* 自定义红色五角星标记样式 */
-        .star-icon {
-            color: #ff4d4d;
-            font-size: 24px;
-            text-shadow: 0 0 10px rgba(255, 77, 77, 0.8);
-            text-align: center;
-            cursor: pointer;
-        }
+        h1 { font-size: 1.1rem; margin: 0 0 10px 0; color: #ff4d4d; border-bottom: 1px solid #333; padding-bottom: 8px;}
+        .detail { font-size: 0.85rem; line-height: 1.6; color: #ccc; }
+
+        /* 五角星样式优化 */
+        .star-red { color: #ff4d4d; font-size: 24px; text-shadow: 0 0 10px #ff4d4d; text-align: center; cursor: pointer; }
+        .star-gray { color: #888; font-size: 24px; text-shadow: 0 0 5px #fff; text-align: center; cursor: pointer; }
     </style>
 </head>
 <body>
 
     <div class="info-panel">
-        <h1>月球地下空间入口</h1>
-        <div id="detail" class="detail-content">
-            <p>请在地图上点击红色星标，查看熔岩管天窗的详细参数及设计研究。</p>
+        <h1>月球地下空间分布</h1>
+        <div id="detail" class="detail">
+            <p>基于 LRO 数据的潜在入口分布研究。</p>
+            <p style="color:#ff4d4d">★ 月海熔岩管 (Maria)</p>
+            <p style="color:#888">★ 高地熔岩管 (Highlands)</p>
+            <hr style="border: 0.5px solid #222; margin: 15px 0;">
+            <div id="content">点击地图星标查看详细参数。</div>
         </div>
     </div>
 
@@ -44,65 +41,69 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // 1. 初始化地图：中心点设在赤道附近，缩放级别设为 3
+        // 初始化地图，设置中心点为赤道 0 度经线
         const map = L.map('map', {
-            center: [10, 0], 
+            center: [0, 0],
             zoom: 3,
             minZoom: 2,
-            maxZoom: 6,
-            maxBounds: [[-90, -180], [90, 180]] // 限制拖动范围不超出全球
+            maxZoom: 8, // 支持更深度的缩放
+            maxBounds: [[-90, -180], [90, 180]]
         });
 
-        // 2. 加载月球瓦片底图 (使用 NASA LROC 数据源)
-        L.tileLayer('https://cartocdn-gusc.global.ssl.fastly.net/opmbuilder/api/v1/map/named/opm-moon-basemap/all/{z}/{x}/{y}.png', {
-            attribution: 'NASA/LROC/ASU | Lunar Underground Research'
+        // 使用你提供的最新高清瓦片地址
+        L.tileLayer('https://cartocdn-gusc.global.ssl.fastly.net/opmbuilder/api/v1/map/named/opm-moon-basemap-v0-1/all/{z}/{x}/{y}.png', {
+            attribution: 'NASA/LRO/ASU/OpenPlanetary',
+            noWrap: true
         }).addTo(map);
 
-        // 3. 定义红色五角星图标
-        const starIcon = L.divIcon({
-            className: 'star-icon',
-            html: '★', 
+        // 自定义五角星图标
+        const getIcon = (colorClass) => L.divIcon({
+            className: colorClass,
+            html: '★',
             iconSize: [30, 30],
             iconAnchor: [15, 15]
         });
 
-        // 4. 配置地点数据 (包含经纬度坐标和描述)
-        const tubes = [
-            { 
-                name: "静海天窗 (Mare Tranquillitatis)", 
-                coords: [8.33, 33.22], 
-                info: "2024年确认存在长约数百米的地下熔岩隧道。作为月球首个实证入口，它是未来建立模块化地下基地的首选地点。",
-                image: "https://via.placeholder.com/300x180/222/fff?text=Tube+Section+Study" 
-            },
-            { 
-                name: "马利厄斯山 (Marius Hills)", 
-                coords: [14.09, -56.71], 
-                info: "已知最著名的月球天窗之一，直径约65米。其稳定的地下空间非常适合放置医疗舱段和长期居住模块。",
-                image: "https://via.placeholder.com/300x180/222/fff?text=Marius+Hills+Rendering" 
-            },
-            { 
-                name: "莫斯科海 (Mare Moscoviense)", 
-                coords: [27.3, 147.9], 
-                info: "位于月球背面。由于背面可以完全屏蔽地球的无线电干扰，这里的熔岩管是建立深空探测射电望远镜基地的理想位置。",
-                image: "https://via.placeholder.com/300x180/222/fff?text=Far+Side+Facility"
-            }
+        // 完整配对数据 (基于你上传的标注图)
+        const sites = [
+            // 月海区域 (红色)
+            { name: "静海 (Mare Tranquillitatis)", coords: [8.3, 33.2], type: "red", info: "2024年确认存在地下隧道，适合作为首个栖息地选址。" },
+            { name: "马利厄斯山 (Marius Hills)", coords: [14.1, -56.7], type: "red", info: "月球已知最著名的天窗入口，直径约65米。" },
+            { name: "虹湾 (Sinus Iridium)", coords: [44.1, -31.5], type: "red", info: "月球正面西北部的重要科研热点。" },
+            { name: "北风暴洋-1", coords: [28.0, -45.0], type: "red", info: "位于风暴洋北部的月海入口。" },
+            { name: "北风暴洋-2", coords: [25.5, -48.2], type: "red", info: "风暴洋内部的潜在天窗群。" },
+            { name: "西马面厄斯山", coords: [13.8, -59.5], type: "red", info: "靠近马利厄斯山的次生入口。" },
+            { name: "岛海 (Mare Insularum)", coords: [7.5, -30.8], type: "red", info: "月球正面中部的月海平原区。" },
+            { name: "西南静海", coords: [6.1, 24.3], type: "red", info: "静海边缘的潜在空腔。" },
+            { name: "澄海 (Mare Serenitatis)", coords: [28.0, 17.5], type: "red", info: "月球正面著名的月海区域。" },
+            { name: "死湖-1", coords: [45.0, 25.0], type: "red", info: "位于死湖（Lacus Mortis）的潜在天窗。" },
+            { name: "中丰富海", coords: [-5.0, 45.0], type: "red", info: "丰富海中心区域。" },
+            { name: "莫斯科海 (Mare Moscoviense)", coords: [27.3, 147.9], type: "red", info: "【月球背面】罕见的月海熔岩管。" },
+            { name: "智海 (Mare Ingenii)", coords: [-33.7, 163.5], type: "red", info: "【月球背面】著名的天窗群。" },
+
+            // 高地区域 (灰色)
+            { name: "康普顿 (Compton)", coords: [55.3, 103.8], type: "gray", info: "高纬度高地入口。" },
+            { name: "朗格撞击坑", coords: [-12.5, 70.0], type: "gray", info: "高地区域的潜在地下空腔。" },
+            { name: "西南丰富海", coords: [-15.0, 35.0], type: "gray", info: "高地与月海交界处。" },
+            { name: "高地-3", coords: [48.0, -25.0], type: "gray", info: "北部高地区域入口候选。" },
+            { name: "施吕特撞击坑", coords: [-5.9, -83.3], type: "gray", info: "月球西侧高地的重要点位。" }
         ];
 
-        // 5. 循环生成标记并添加点击交互
-        tubes.forEach(tube => {
-            const marker = L.marker(tube.coords, {icon: starIcon}).addTo(map);
-            
+        // 将数据循环渲染到地图上
+        sites.forEach(site => {
+            const marker = L.marker(site.coords, {
+                icon: getIcon(site.type === 'red' ? 'star-red' : 'star-gray')
+            }).addTo(map);
+
             marker.on('click', () => {
-                // 更新右侧面板内容
-                document.getElementById('detail').innerHTML = `
-                    <h2 style="font-size:1rem; color:#fff; margin:10px 0;">${tube.name}</h2>
-                    <p><b>坐标:</b> 纬度 ${tube.coords[0]}, 经度 ${tube.coords[1]}</p>
-                    <p>${tube.info}</p>
-                    <img src="${tube.image}" alt="研究示意图">
-                    <p style="font-size:0.8rem; color:#888; margin-top:10px;">* 数据来源: 国际天文学联合会 (IAU)</p>
+                document.getElementById('content').innerHTML = `
+                    <div style="background:rgba(255,255,255,0.1); padding:10px; border-radius:8px;">
+                        <strong style="color:${site.type === 'red' ? '#ff4d4d' : '#fff'}; font-size:1rem;">${site.name}</strong><br>
+                        <small style="color:#888;">坐标: ${site.coords[0]}°N, ${site.coords[1]}°E</small><br>
+                        <p style="margin-top:10px;">${site.info}</p>
+                    </div>
                 `;
-                // 视角自动平移到选中的地点
-                map.panTo(tube.coords);
+                map.panTo(site.coords);
             });
         });
     </script>
